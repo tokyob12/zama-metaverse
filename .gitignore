@@ -1,15 +1,13 @@
 
-# --- Critical Security Files (Must be excluded everywhere) ---
 .env
 
-# --- Dependencies / Build Artifacts ---
 node_modules/
 */node_modules/
 
-# --- Frontend Build Artifacts (from Metaverse Game/) ---
 /Metaverse Game/dist
 /Metaverse Game/.parcel-cache
 
-# --- Backend/Contract Artifacts (from zama-quest-contract/) ---
 /zama-quest-contract/cache
 /zama-quest-contract/artifacts
+
+.DS_Store
