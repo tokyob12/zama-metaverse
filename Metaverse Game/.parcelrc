@@ -1,0 +1,8 @@
+{
+  "extends": "@parcel/config-default",
+  "transformers": {
+    "*.{glb,gltf,babylon,bin}": ["@parcel/transformer-raw"],
+    "*.hdr": ["@parcel/transformer-raw"],
+    "*.{mp3,m4a,ogg,wav}": ["@parcel/transformer-raw"] 
+  }
+}

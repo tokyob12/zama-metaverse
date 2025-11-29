@@ -1,0 +1,569 @@
+import { CONFIG } from "../constants/GameConfig";
+import { ASSETS } from "../constants/Assets";
+import { SceneManager } from "../managers/SceneManager";
+import { MobileInputManager } from "../controllers/MobileInputManager";
+import { EffectsManager } from "../managers/EffectsManager"; 
+
+
+export class SettingsUI {
+  static settingsButton = null;
+  static settingsPanel = null;
+  static isPanelOpen = false;
+  static sceneManager = null;
+  static isInitializing = false;
+
+  // Device detection methods (Already static)
+  static isMobileDevice() {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(
+      navigator.userAgent
+    );
+  }
+
+  static isIPad() {
+    return (
+      /iPad/i.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+      (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+    );
+  }
+
+  static isIPadWithKeyboard() {
+    if (!this.isIPad()) {
+      return false;
+    }
+    return window.innerHeight < window.innerWidth;
+  }
+
+  static shouldShowSection(visibility) {
+    switch (visibility) {
+      case "all":
+        return true;
+      case "mobile":
+        return this.isMobileDevice();
+      case "iPadWithKeyboard":
+        return this.isIPadWithKeyboard();
+      default:
+        return false;
+    }
+  }
+
+  static initialize(canvas, sceneManager) {
+    this.isInitializing = true;
+    this.sceneManager = sceneManager || null;
+    
+    this.dispose(); 
+    
+    this.injectGlobalStyles(); 
+    
+    this.createSettingsButton(canvas);
+    this.createSettingsPanel(canvas);
+    this.setupEventListeners();
+    this.attachButtonListener(); 
+    
+    setTimeout(() => {
+        this.setupToggleStateHandlers(); 
+    }, 50); 
+
+    this.isInitializing = false;
+  }
+  
+  static injectGlobalStyles() {
+    const style = document.createElement("style");
+    style.textContent = `
+        .settings-header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px 24px;
+            border-bottom: 1px solid rgba(0, 255, 136, 0.3);
+            background: rgba(0, 0, 0, 0.2);
+            box-sizing: border-box;
+        }
+        .settings-header h2 {
+            font-size: 24px;
+            font-weight: 700;
+            color: ${CONFIG.HUD.HIGHLIGHT_COLOR};
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        .settings-content {
+            padding: 24px;
+            box-sizing: border-box;
+        }
+        .settings-section {
+            margin-bottom: 28px;
+            padding: 18px;
+            background: rgba(0, 0, 0, 0.4);
+            border: none;
+            border-top: 1px solid rgba(0, 255, 136, 0.5);
+            border-right: 1px solid rgba(0, 255, 136, 0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            border-radius: 2px;
+            transition: all 0.3s ease;
+        }
+        .settings-section:hover {
+             border-right: 2px solid rgba(0, 255, 136, 0.8);
+        }
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .section-header h3 {
+            margin: 0;
+            font-size: 16px;
+            font-weight: 600;
+            color: white;
+        }
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 24px;
+        }
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(255, 255, 255, 0.2);
+            transition: 0.3s;
+            border-radius: 24px;
+        }
+        .toggle-slider span { /* The circle */
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 3px;
+            bottom: 3px;
+            background-color: white;
+            transition: 0.3s;
+            border-radius: 50%;
+        }
+        .settings-section select {
+            padding: 10px 14px;
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            border-radius: 4px;
+            color: ${CONFIG.HUD.HIGHLIGHT_COLOR};
+            font-size: 14px;
+            cursor: pointer;
+            min-width: 120px;
+            box-sizing: border-box;
+            height: 38px;
+            font-family: Consolas, 'Courier New', monospace;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .settings-section select:focus {
+            border-color: ${CONFIG.HUD.HIGHLIGHT_COLOR};
+            box-shadow: 0 0 8px ${CONFIG.HUD.HIGHLIGHT_COLOR};
+            outline: none;
+        }
+    `;
+    document.head.appendChild(style);
+  }
+
+  static createSettingsButton(canvas) {
+    this.settingsButton = document.createElement("div");
+    this.settingsButton.id = "settings-button";
+    this.settingsButton.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M12 15C13.6569 15 15 13.6569 15 12C15 10.3431 13.6569 9 12 9C10.3431 9 9 10.3431 9 12C9 13.6569 10.3431 15 12 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M19.4 15C19.2669 15.3016 19.2272 15.6362 19.286 15.9606C19.3448 16.285 19.4995 16.5843 19.73 16.82L19.79 16.88C19.976 17.0657 20.1235 17.2863 20.2241 17.5291C20.3248 17.7719 20.3766 18.0322 20.3766 18.295C20.3766 18.5578 20.3248 18.8181 20.2241 19.0609C20.1235 19.3037 19.976 19.5243 19.79 19.71C19.6043 19.896 19.3837 20.0435 19.1409 20.1441C18.8981 20.2448 18.6378 20.2966 18.375 20.2966C18.1122 20.2966 17.8519 20.2448 17.6091 20.1441C17.3663 20.0435 17.1457 19.896 16.96 19.71L16.9 19.65C16.6643 19.4195 16.365 19.2648 16.0406 19.206C15.7162 19.1472 15.3816 19.1869 15.08 19.32C14.7842 19.4468 14.532 19.6572 14.3543 19.9255C14.1766 20.1938 14.0813 20.5082 14.08 20.83V21C14.08 21.5304 13.8693 22.0391 13.4942 22.4142C13.1191 22.7893 12.6104 23 12.08 23C11.5496 23 11.0409 22.7893 10.6658 22.4142C10.2907 22.0391 10.08 21.5304 10.08 21V20.91C10.0723 20.579 9.96512 20.2579 9.77251 19.9887C9.5799 19.7195 9.31074 19.5149 9 19.4C8.69838 19.2669 8.36381 19.2272 8.03941 19.286C7.71502 19.3448 7.41568 19.4995 7.18 19.73L7.12 19.79C6.93425 19.976 6.71368 20.1235 6.47088 20.2241C6.22808 20.3248 5.96783 20.3766 5.705 20.3766C5.44217 20.3766 5.18192 20.3248 4.93912 20.2241C4.69632 20.1235 4.47575 19.976 4.29 19.79C4.10405 19.6043 3.95653 19.3837 3.85588 19.1409C3.75523 18.8981 3.70343 18.6378 3.70343 18.375C3.70343 18.1122 3.75523 17.8519 3.85588 17.6091C3.95653 17.3663 4.10405 17.1457 4.29 16.96L4.35 16.9C4.58054 16.6643 4.73519 16.365 4.794 16.0406C4.85282 15.7162 4.81312 15.3816 4.68 15.08C4.55324 14.7842 4.34276 14.532 4.07447 14.3543C3.80618 14.1766 3.49179 14.0813 3.17 14.08H3C2.46957 14.08 1.96086 13.8693 1.58579 13.4942C1.21071 13.1191 1 12.6104 1 12.08C1 11.5496 1.21071 11.0409 1.58579 10.6658C1.96086 10.2907 2.46957 10.08 3 10.08H3.09C3.42099 10.0723 3.74206 9.96512 4.01128 9.77251C4.2805 9.5799 4.48514 9.31074 4.6 9C4.73312 8.69838 4.77282 8.36381 4.714 8.03941C4.65519 7.71502 4.50054 7.41568 4.27 7.18L4.21 7.12C4.02405 6.93425 3.87653 6.71368 3.77588 6.47088C3.67523 6.22808 3.62343 5.96783 3.62343 5.705C3.62343 5.44217 3.67523 5.18192 3.77588 4.93912C3.87653 4.69632 4.02405 4.47575 4.21 4.29C4.39575 4.10405 4.61632 3.95653 4.85912 3.85588C5.10192 3.75523 5.36217 3.70343 5.625 3.70343C5.88783 3.70343 6.14808 3.75523 6.39088 3.85588C6.63368 3.95653 6.85425 4.10405 7.04 4.29L7.1 4.35C7.33568 4.58054 7.63502 4.73519 7.95941 4.794C8.28381 4.85282 8.61838 4.81312 8.92 4.68H9C9.29577 4.55324 9.54802 4.34276 9.72569 4.07447C9.90337 3.80618 9.99872 3.49179 10 3.17V3C10 2.46957 10.2107 1.96086 10.5858 1.58579C10.9609 1.21071 11.4696 1 12 1C12.5304 1 13.0391 1.21071 13.4142 1.58579C13.7893 1.96086 14 2.46957 14 3V3.09C14.0013 3.41179 14.0966 3.72618 14.2743 3.99447C14.452 4.26276 14.7042 4.47324 15 4.6C15.3016 4.73312 15.6362 4.77282 15.9606 4.714C16.285 4.65519 16.5843 4.50054 16.82 4.27L16.88 4.21C17.0657 4.02405 17.2863 3.87653 17.5291 3.77588C17.7719 3.67523 18.0322 3.62343 18.295 3.62343C18.5578 3.62343 18.8181 3.67523 19.0609 3.77588C19.3037 3.87653 19.5243 4.02405 19.71 4.21C19.896 4.39575 20.0435 4.61632 20.1441 4.85912C20.2448 5.10192 20.2966 5.36217 20.2966 5.625C20.2966 5.88783 20.2448 6.14808 20.1441 6.39088C20.0435 6.63368 19.896 6.85425 19.71 7.04L19.65 7.1C19.4195 7.33568 19.2648 7.63502 19.206 7.95941C19.1472 8.28381 19.1869 8.61838 19.32 8.92V9C19.4468 9.29577 19.6572 9.54802 19.9255 9.72569C20.1938 9.90337 20.5082 9.99872 20.83 10H21C21.5304 10 22.0391 10.2107 22.4142 10.5858C22.7893 10.9609 23 11.4696 23 12C23 12.5304 22.7893 13.0391 22.4142 13.4142C22.0391 13.7893 21.5304 14 21 14H20.91C20.5882 14.0013 20.2738 14.0966 20.0055 14.2743C19.7372 14.452 19.5268 14.7042 19.4 15Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        `;
+    
+    Object.assign(this.settingsButton.style, {
+        position: "fixed", bottom: "20px", left: "20px", width: "50px", height: "50px",
+        background: "rgba(0, 0, 0, 0.7)", border: "2px solid rgba(255, 255, 255, 0.3)",
+        borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center",
+        cursor: "pointer", color: "white", zIndex: CONFIG.SETTINGS.BUTTON_Z_INDEX.toString(),
+        transition: "all 0.3s ease", backdropFilter: "blur(10px)",
+        pointerEvents: 'auto'
+    });
+
+    this.settingsButton.addEventListener("mouseenter", () => {
+      this.settingsButton.style.background = "rgba(0, 0, 0, 0.9)";
+      this.settingsButton.style.borderColor = "rgba(255, 255, 255, 0.6)";
+      this.settingsButton.style.transform = "scale(1.1)";
+    });
+    this.settingsButton.addEventListener("mouseleave", () => {
+      if (!this.isPanelOpen) {
+          this.settingsButton.style.background = "rgba(0, 0, 0, 0.7)";
+          this.settingsButton.style.borderColor = "rgba(255, 255, 255, 0.3)";
+      }
+      this.settingsButton.style.transform = "scale(1)";
+    });
+
+    document.body.appendChild(this.settingsButton);
+  }
+
+  static createSettingsPanel(canvas) {
+    if (this.settingsPanel) {
+        this.settingsPanel.remove();
+    }
+    
+    this.settingsPanel = document.createElement("div");
+    this.settingsPanel.id = "settings-panel";
+    
+    const panelWidth = this.getPanelWidth();
+    const sectionsHTML = this.generateSectionsHTML();
+
+    this.settingsPanel.innerHTML = `
+            <div class="settings-header">
+                <h2>${CONFIG.SETTINGS.HEADING_TEXT}</h2>
+            </div>
+            <div class="settings-content">
+                ${sectionsHTML}
+            </div>
+        `;
+        
+    Object.assign(this.settingsPanel.style, {
+        position: "fixed", top: "0", left: `-${panelWidth}px`, width: `${panelWidth}px`,
+        height: "100vh", background: "rgba(10, 10, 30, 0.95)", backdropFilter: "blur(15px)",
+        borderRight: "2px solid rgba(0, 255, 136, 0.5)", boxShadow: "5px 0 20px rgba(0, 255, 136, 0.15)",
+        zIndex: CONFIG.SETTINGS.Z_INDEX.toString(), transition: "left 0.4s ease-out", 
+        color: "white", fontFamily: "Consolas, 'Courier New', monospace",
+        overflowY: "auto", boxSizing: "border-box"
+    });
+
+    document.body.appendChild(this.settingsPanel);
+    
+    this.setupEventListeners();
+
+    window.addEventListener("orientationchange", () => {
+      setTimeout(() => {
+        this.regenerateSections();
+      }, 100); 
+    });
+    
+    window.addEventListener("resize", () => {
+      this.regenerateSections();
+      this.updatePanelWidth();
+    });
+  }
+  
+  static getPanelWidth() {
+      const viewWidth = window.innerWidth;
+      const minWidth = CONFIG.SETTINGS.FULL_SCREEN_THRESHOLD;
+      const ratio = CONFIG.SETTINGS.PANEL_WIDTH_RATIO;
+      
+      if (viewWidth < minWidth) {
+          return viewWidth;
+      } else {
+          return Math.max(viewWidth * ratio, minWidth);
+      }
+  }
+
+  static regenerateSections() {
+    if (!this.settingsPanel) return;
+    
+    const sectionsHTML = this.generateSectionsHTML();
+    const content = this.settingsPanel.querySelector(".settings-content");
+    
+    if (content) {
+      content.innerHTML = sectionsHTML;
+    }
+    
+    this.setupSectionEventListeners();
+    setTimeout(() => {
+        this.setupToggleStateHandlers(); 
+    }, 50);
+  }
+
+  static generateSectionsHTML() {
+    let sectionsHTML = "";
+    
+    const allSections = [
+        {
+            title: "Sound",
+            uiElement: "toggle",
+            visibility: "all", 
+            defaultValue: true, 
+            onChange: (value) => {
+                 EffectsManager.setMasterVolume(value ? 1.0 : 0.0);
+            },
+        },
+        ...CONFIG.SETTINGS.SECTIONS
+    ];
+    
+    allSections.forEach((section, index) => {
+      if (!this.shouldShowSection(section.visibility)) {
+        return;
+      }
+      
+      const sectionId = `section-${index}`;
+      
+      if (section.uiElement === "toggle") {
+        let defaultValue = section.defaultValue ?? false;
+        
+        if (section.title === "Screen Controls" && MobileInputManager.isInitialized) {
+             defaultValue = MobileInputManager.isVisible(); 
+        } else {
+             defaultValue = section.defaultValue ?? false; 
+        }
+
+        sectionsHTML += `
+          <div class="settings-section" id="${sectionId}">
+              <div class="section-header">
+                  <h3>${section.title}</h3>
+                  <label class="toggle-switch">
+                      <input type="checkbox" ${
+                        defaultValue ? "checked" : ""
+                      } data-section-index="${index}">
+                      <span class="toggle-slider"></span>
+                  </label>
+              </div>
+          </div>
+        `;
+      } else if (section.uiElement === "dropdown") {
+        const defaultValue = section.defaultValue ?? section.options?.[0] ?? "";
+        let optionsHTML = "";
+        
+        const sourceArray = section.title === "Character" 
+          ? ASSETS.CHARACTERS 
+          : section.title === "Environment" 
+          ? ASSETS.ENVIRONMENTS 
+          : (section.options || []).map(o => ({ name: o }));
+          
+        optionsHTML = sourceArray.map(
+            (item) =>
+              `<option value="${item.name}" ${
+                item.name === defaultValue ? "selected" : ""
+              }>${item.name}</option>`
+          ).join("");
+
+        sectionsHTML += `
+          <div class="settings-section" id="${sectionId}">
+              <div class="section-header">
+                  <h3>${section.title}</h3>
+                  <select data-section-index="${index}">
+                      ${optionsHTML}
+                  </select>
+              </div>
+          </div>
+        `;
+      }
+    });
+    
+    return sectionsHTML;
+  }
+
+  static setupSectionEventListeners() {
+    const toggles = this.settingsPanel.querySelectorAll(
+      'input[type="checkbox"]'
+    );
+    toggles.forEach((toggle) => {
+      toggle.addEventListener("change", async (e) => {
+        const target = e.target;
+        const sectionIndex = parseInt(target.dataset.sectionIndex);
+        
+        // Find the section again based on index, accounting for the manually added Sound toggle
+        const allSections = [
+            {
+                title: "Sound",
+                uiElement: "toggle",
+                visibility: "all", 
+                defaultValue: false, 
+                onChange: (value) => {
+                     EffectsManager.setMasterVolume(value ? 1.0 : 0.0);
+                },
+            },
+            ...CONFIG.SETTINGS.SECTIONS
+        ];
+        const section = allSections[sectionIndex];
+        
+        if (section && section.onChange) {
+            if (section.title === "Screen Controls") {
+                MobileInputManager.setVisibility(target.checked);
+            } else {
+                await section.onChange(target.checked);
+            }
+        }
+      });
+    });
+
+    const selects = this.settingsPanel.querySelectorAll("select");
+    selects.forEach((select) => {
+      select.addEventListener("change", async (e) => {
+        const target = e.target;
+        const sectionIndex = parseInt(target.dataset.sectionIndex);
+        
+        const section = CONFIG.SETTINGS.SECTIONS[sectionIndex];
+        
+        if (section && section.onChange && !this.isInitializing) {
+          await section.onChange(target.value);
+        }
+      });
+      // Add event listeners for focus glow
+      select.addEventListener('focus', () => {
+          select.style.borderColor = CONFIG.HUD.HIGHLIGHT_COLOR;
+          select.style.boxShadow = `0 0 8px ${CONFIG.HUD.HIGHLIGHT_COLOR}`;
+      });
+      select.addEventListener('blur', () => {
+          select.style.borderColor = 'rgba(255, 255, 255, 0.4)';
+          select.style.boxShadow = 'none';
+      });
+    });
+  }
+
+  static setupToggleStateHandlers() {
+    const toggleInputs = this.settingsPanel.querySelectorAll(".toggle-switch input");
+    
+    if (!toggleInputs) return;
+
+    toggleInputs.forEach((input) => {
+      const slider = input.nextElementSibling;
+      if (!slider) return; 
+      const toggleCircle = slider.querySelector("span");
+      if (!toggleCircle) return;
+      
+      const updateStyle = (checked) => {
+          if (checked) {
+              slider.style.backgroundColor = "rgba(0, 255, 136, 0.8)"; 
+              toggleCircle.style.transform = "translateX(26px)";
+              toggleCircle.style.backgroundColor = CONFIG.HUD.PRIMARY_COLOR;
+          } else {
+              // OFF State: Dark/subtle slider, gray circle
+              slider.style.backgroundColor = "rgba(255, 255, 255, 0.1)"; 
+              toggleCircle.style.transform = "translateX(0)";
+              toggleCircle.style.backgroundColor = CONFIG.HUD.SECONDARY_COLOR;
+          }
+      };
+      
+      updateStyle(input.checked); 
+
+      input.addEventListener("change", (e) => {
+        updateStyle(e.target.checked);
+      });
+      
+      slider.addEventListener("click", (e) => {
+          e.stopPropagation(); 
+          // Note: The click listener on the slider is a final safeguard. The main logic 
+          // relies on the browser toggling the hidden input, which triggers the 'change' event.
+      });
+    });
+  }
+
+  static setupEventListeners() {
+    this.settingsButton.addEventListener("click", () => {
+      this.togglePanel();
+    });
+
+    document.addEventListener("click", (e) => {
+      if (
+        this.isPanelOpen && this.settingsPanel && this.settingsButton &&
+        !this.settingsPanel.contains(e.target) && !this.settingsButton.contains(e.target)
+      ) {
+        this.closePanel();
+      }
+    });
+    
+    window.addEventListener("resize", () => {
+      if (this.isPanelOpen) {
+        this.updatePanelWidth();
+      }
+    });
+  }
+
+  static attachButtonListener() {
+    if (this.settingsButton) {
+        this.settingsButton.addEventListener("click", () => {
+            this.togglePanel();
+        });
+    }
+  }
+
+  static togglePanel() {
+    if (!this.settingsPanel) { 
+        console.error("Settings Panel not initialized (is null). Cannot toggle.");
+        return;
+    }
+    if (this.isPanelOpen) {
+      this.closePanel();
+    } else {
+      this.openPanel();
+    }
+  }
+
+  static openPanel() {
+    this.updatePanelWidth();
+    this.settingsPanel.style.left = "0px";
+    this.isPanelOpen = true;
+    
+    this.settingsButton.style.transform = "scale(1.1)";
+    this.settingsButton.style.background = "rgba(0, 0, 0, 0.9)";
+    this.settingsButton.style.zIndex = CONFIG.SETTINGS.BUTTON_Z_INDEX.toString(); 
+  }
+
+  static closePanel() {
+    const panelWidth = this.settingsPanel.offsetWidth;
+    this.settingsPanel.style.left = `-${panelWidth}px`;
+    this.isPanelOpen = false;
+    
+    this.settingsButton.style.transform = "scale(1)";
+    this.settingsButton.style.background = "rgba(0, 0, 0, 0.7)";
+    this.settingsButton.style.zIndex = CONFIG.SETTINGS.BUTTON_Z_INDEX.toString();
+  }
+
+  static updatePanelWidth() {
+    if (!this.settingsPanel) return;
+
+    const panelWidth = this.getPanelWidth();
+    
+    this.settingsPanel.style.width = `${panelWidth}px`;
+    
+    if (!this.isPanelOpen) {
+      this.settingsPanel.style.left = `-${panelWidth}px`;
+    }
+  }
+
+  static dispose() {
+    if (this.settingsButton) {
+      this.settingsButton.remove();
+      this.settingsButton = null;
+    }
+    if (this.settingsPanel) {
+      this.settingsPanel.remove();
+      this.settingsPanel = null;
+    }
+    this.isPanelOpen = false;
+  }
+
+  // Action Handlers for Dropdowns
+  static async changeCharacter(characterIndexOrName) {
+    if (this.sceneManager && !this.isInitializing) {
+      this.sceneManager.changeCharacter(characterIndexOrName);
+    }
+  }
+
+  static async changeEnvironment(environmentName) {
+    if (this.sceneManager) {
+      const currentEnvironment = this.sceneManager.getCurrentEnvironment();
+      
+      if (currentEnvironment === environmentName) {
+        return; 
+      }
+      
+      this.sceneManager.pausePhysics();
+      this.sceneManager.clearEnvironment();
+      this.sceneManager.clearItems();
+      this.sceneManager.clearParticles();
+
+      await this.sceneManager.loadEnvironment(environmentName);
+      await this.sceneManager.setupEnvironmentItems();
+      this.sceneManager.repositionCharacter();
+      this.sceneManager.forceActivateSmoothFollow();
+
+      this.sceneManager.resumePhysics();
+    }
+  }
+}

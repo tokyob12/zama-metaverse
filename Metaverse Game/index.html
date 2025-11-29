@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FHE Quest Metaverse</title>
+    <link rel="icon" type="image/png" href="src/assets/model/icon.png" /> 
+    
+    <style>
+        html, body {
+            overflow: hidden;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+            background-color: #000;
+        }
+
+        #renderCanvas {
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+            outline: none;
+        }
+
+        #canvasZone {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #welcomeOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            opacity: 1;
+            transition: opacity 0.5s ease-out;
+            border: 5px solid #000; 
+            box-sizing: border-box;
+        }
+        
+        @keyframes glow {
+            0% { border-color: rgba(0, 255, 136, 0.5); box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+            50% { border-color: rgba(255, 210, 8, 0.8); box-shadow: 0 0 20px rgba(255, 210, 8, 0.8); }
+            100% { border-color: rgba(0, 255, 136, 0.5); box-shadow: 0 0 10px rgba(0, 255, 136, 0.5); }
+        }
+        
+        #titleContainer {
+            border: 2px solid;
+            padding: 20px 40px;
+            margin-bottom: 30px;
+            animation: glow 4s infinite alternate;
+        }
+
+        h1 {
+            color: #FFD208;
+            font-size: 5rem;
+            text-shadow: 0 0 20px rgba(255, 210, 8, 1), 0 0 5px rgba(255, 210, 8, 0.7);
+            margin: 0;
+            letter-spacing: 5px;
+        }
+
+        .subtitle {
+            color: #00FF88;
+            font-size: 1.5rem;
+            text-shadow: 0 0 10px rgba(0, 255, 136, 0.7);
+            margin-top: 10px;
+        }
+
+        #hint {
+            color: #555;
+            font-size: 0.9rem;
+            margin-top: 50px;
+        }
+        
+        #startButton {
+            background-color: #0a0a0a;
+            color: #00FF88;
+            border: 2px solid #00FF88;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            box-shadow: 0 0 15px rgba(0, 255, 136, 0.8);
+            transition: all 0.2s ease-in-out;
+            margin-top: 30px;
+            text-shadow: 0 0 5px #00FF88;
+        }
+
+        #startButton:hover {
+            background-color: #00FF88;
+            color: #000;
+            box-shadow: 0 0 25px rgba(0, 255, 136, 1);
+        }
+        
+    </style>
+</head>
+<body>
+    <div id="canvasZone">
+        <canvas id="renderCanvas" touch-action="none"></canvas>
+    </div>
+
+    <div id="welcomeOverlay">
+        <div id="titleContainer">
+            <h1>FHE QUEST</h1>
+        </div>
+        
+        <p class="subtitle">CONFIDENTIAL COMPUTATION IN THE METAVERSE</p>
+        
+        <p id="hint">
+            // STATUS: AWAITING FHE PUBLIC KEY | DECRYPTING ASSET HANDLES...
+        </p>
+
+        <button id="startButton">START GAME</button>
+    </div>
+
+      <!-- 1️⃣ Load Zama browser SDK bundle -->
+  <!-- <script src="/relayer-bundle.js"></script> -->
+
+  <!-- 2️⃣ Load wrapper that exposes window.ZamaRelayer -->
+    <!-- <script src="relayer.js"></script>  -->
+    
+    <!-- 1. Havok Physics UMD script (MUST be loaded before Babylon.js logic) -->
+    <script src="https://cdn.babylonjs.com/havok/HavokPhysics_umd.js"></script> 
+
+    
+    <!-- 2. Main Game Script - CRITICALLY using type="module" for Parcel/ESM compatibility -->
+    <script type="module" src="src/index.js"></script> 
+
+</body>
+</html>
