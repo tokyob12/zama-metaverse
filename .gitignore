@@ -11,3 +11,5 @@ node_modules/
 /zama-quest-contract/artifacts
 
 .DS_Store
+**/.DS_Store
+
